@@ -1,0 +1,4 @@
+dist
+example/dist
+package-lock.json
+example/package-lock.json

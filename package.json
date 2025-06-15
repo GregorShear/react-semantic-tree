@@ -1,0 +1,71 @@
+{
+  "name": "react-semantic-tree",
+  "version": "1.0.0",
+  "description": "Decorate your React component tree with semantic context.",
+  "workspaces": [
+    "example"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepublishOnly": "npm run format:check && npm run lint && npm run build"
+  },
+  "keywords": [
+    "react",
+    "logging",
+    "semantic-tree",
+    "context",
+    "sentry",
+    "logrocket",
+    "typescript"
+  ],
+  "author": "GregorShear",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gregorshear/react-semantic-tree.git"
+  },
+  "homepage": "https://github.com/gregorshear/react-semantic-tree#readme",
+  "bugs": {
+    "url": "https://github.com/gregorshear/react-semantic-tree/issues"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "~9.29.0",
+    "@types/node": "22.15.31",
+    "@types/react": "18.3.23",
+    "@types/react-dom": "18.3.7",
+    "eslint": "~9.29.0",
+    "eslint-config-prettier": "~10.1.5",
+    "eslint-plugin-react-hooks": "~6.0.0",
+    "prettier": "~3.5.3",
+    "react": "~18.3.1",
+    "react-dom": "~18.3.1",
+    "tsup": "8.5.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "8.34.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
