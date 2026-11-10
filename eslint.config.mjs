@@ -35,7 +35,7 @@ export default tseslint.config(
   {
     // Config files are linted for obvious errors but sit outside the app's
     // tsconfig project, so type-aware rules cannot run on them.
-    files: ["**/*.config.{js,mjs,ts}", "eslint.config.mjs"],
+    files: ["**/*.config.{js,mjs,cjs,ts,mts,cts}", "eslint.config.mjs"],
     extends: [tseslint.configs.disableTypeChecked],
   },
 

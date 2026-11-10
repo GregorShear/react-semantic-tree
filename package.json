@@ -1,6 +1,6 @@
 {
   "name": "react-semantic-tree",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Decorate your React component tree with semantic context.",
   "workspaces": [
     "example"
@@ -25,8 +25,11 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepublishOnly": "npm run format:check && npm run lint && npm run build"
+    "prepublishOnly": "npm run format:check && npm run lint && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
+  "sideEffects": false,
   "keywords": [
     "react",
     "logging",
@@ -40,11 +43,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gregorshear/react-semantic-tree.git"
+    "url": "git+https://github.com/GregorShear/react-semantic-tree.git"
   },
-  "homepage": "https://github.com/gregorshear/react-semantic-tree#readme",
+  "homepage": "https://github.com/GregorShear/react-semantic-tree#readme",
   "bugs": {
-    "url": "https://github.com/gregorshear/react-semantic-tree/issues"
+    "url": "https://github.com/GregorShear/react-semantic-tree/issues"
   },
   "peerDependencies": {
     "react": ">=16.8.0",
@@ -52,18 +55,22 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^31.0.0",
     "prettier": "^3.9.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
   },
   "publishConfig": {
     "access": "public"
