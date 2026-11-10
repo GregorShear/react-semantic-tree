@@ -1,9 +1,10 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "noEmit": true,
+    "rootDir": "..",
     "paths": {
-      "react-log-breadcrumb": ["../src"]
+      "react-semantic-tree": ["../src"]
     },
     "types": ["node"]
   },

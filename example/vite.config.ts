@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "react-semantic-tree": path.resolve(__dirname, "../src"),
+      "react-semantic-tree": path.resolve(import.meta.dirname, "../src"),
     },
   },
   server: {
