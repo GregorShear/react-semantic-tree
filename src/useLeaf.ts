@@ -6,6 +6,13 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  ANCHOR_ATTRIBUTE,
+  EVENTS_ATTRIBUTE,
+  LEAF_ATTRIBUTE,
+  METADATA_ATTRIBUTE,
+  PATH_ATTRIBUTE,
+} from "./attributes";
 import { useSemanticContext } from "./Branch";
 import {
   useConfigurationContext,
@@ -24,6 +31,45 @@ const parseJsonAttribute = <T>(
     return fallback;
   }
 };
+
+/**
+ * Selector for the DOM anchor `Branch` publishes on its wrapper. Matches the
+ * marker, not the path attribute: an unlabeled root branch publishes no path but
+ * still carries merged metadata and flags, so it must be found.
+ */
+const BRANCH_ANCHOR = `[${ANCHOR_ATTRIBUTE}]`;
+
+/** Selector for a tracked element, to find where a bubbled event started. */
+const TRACKED_LEAF = `[${LEAF_ATTRIBUTE}]`;
+
+/** Drops explicit `undefined`, so an unset prop cannot clobber an inherited flag. */
+const definedFlags = (options: TrackingOptions): TrackingOptions => {
+  const result = { ...options };
+  for (const key of Object.keys(result) as (keyof TrackingOptions)[]) {
+    if (result[key] === undefined) delete result[key];
+  }
+  return result;
+};
+
+/**
+ * Tracking flags for one element. `Branch` publishes its fully merged flags on
+ * the nearest anchor, so the DOM already carries the whole context chain; the
+ * leaf's own overrides go last. Used for listener attachment and for the
+ * per-event log gate alike, so a branch rendered by the leaf's own component —
+ * which context cannot see — can enable an event as well as disable it.
+ */
+const anchorEvents = (
+  anchor: Element | null,
+  inherited: Required<TrackingOptions>,
+  overrides: TrackingOptions,
+): Required<TrackingOptions> => ({
+  ...inherited,
+  ...parseJsonAttribute<Partial<TrackingOptions>>(
+    anchor?.getAttribute(EVENTS_ATTRIBUTE),
+    {},
+  ),
+  ...definedFlags(overrides),
+});
 
 type MetadataResolver = (event: Event | undefined) => unknown;
 
@@ -107,7 +153,16 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
   );
 
   const [element, setElement] = useState<T | null>(null);
+  const previousElementRef = useRef<T | null>(null);
   const ref = useCallback((node: T | null) => {
+    // Mark the node so a click bubbled out of a nested leaf can be told apart
+    // from one that happened here; drop the mark from the node being left.
+    if (previousElementRef.current && previousElementRef.current !== node) {
+      previousElementRef.current.removeAttribute(LEAF_ATTRIBUTE);
+    }
+    if (node) node.setAttribute(LEAF_ATTRIBUTE, "");
+    previousElementRef.current = node;
+
     setElement(node);
   }, []);
 
@@ -129,27 +184,23 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
   const logEvent = useCallback(
     (eventType: string, targetElement: HTMLElement, event?: Event) => {
       // The DOM is the source of truth for the hierarchy: context cannot see a
-      // provider declared in the same component's JSX. Leaves do not tag
-      // themselves, so this only ever matches a branch anchor.
-      const nearestProvider = targetElement.closest("[data-semantic-path]");
+      // provider declared in the same component's JSX. A leaf marks itself with a
+      // different attribute, so this only ever matches a branch anchor.
+      const nearestProvider = targetElement.closest(BRANCH_ANCHOR);
 
-      const domPath = nearestProvider?.getAttribute("data-semantic-path");
-      const domMetadata = nearestProvider?.getAttribute(
-        "data-semantic-metadata",
-      );
-      const domEventsStr = nearestProvider?.getAttribute(
-        "data-semantic-events",
-      );
+      const domPath = nearestProvider?.getAttribute(PATH_ATTRIBUTE);
+      const domMetadata = nearestProvider?.getAttribute(METADATA_ATTRIBUTE);
 
       const baseMetadata = parseJsonAttribute<Record<string, any>>(
         domMetadata,
         {},
       );
       // Precedence: leaf overrides > branch chain from the DOM > context.
-      const baseEvents = {
-        ...parseJsonAttribute<Required<TrackingOptions>>(domEventsStr, events),
-        ...eventOverridesRef.current,
-      };
+      const baseEvents = anchorEvents(
+        nearestProvider,
+        events,
+        eventOverridesRef.current,
+      );
 
       if (!baseEvents[eventType as keyof TrackingOptions]) {
         return;
@@ -175,13 +226,28 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
   useEffect(() => {
     if (!element) return;
 
-    if (events.mount && lastMountedElement.current !== element) {
+    const effective = anchorEvents(
+      element.closest(BRANCH_ANCHOR),
+      events,
+      eventOverridesRef.current,
+    );
+
+    if (effective.mount && lastMountedElement.current !== element) {
       logEvent("mount", element);
       lastMountedElement.current = element;
     }
 
     // Logged as they happen: a click does not suppress the hover before it.
     const handleClick = (event: MouseEvent) => {
+      // A nested leaf's click bubbles up to this element too, but that leaf
+      // already logged it and naming this one would misattribute a click the
+      // user never made here. Only the leaf the event started in reports it.
+      const target = event.target;
+      if (target instanceof Element) {
+        const origin = target.closest(TRACKED_LEAF);
+        if (origin && origin !== element) return;
+      }
+
       logEvent("click", element, event);
     };
 
@@ -193,15 +259,15 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
       logEvent("focus", element, event);
     };
 
-    if (events.click) {
+    if (effective.click) {
       element.addEventListener("click", handleClick);
     }
 
-    if (events.hover) {
+    if (effective.hover) {
       element.addEventListener("mouseenter", handleMouseEnter);
     }
 
-    if (events.focus) {
+    if (effective.focus) {
       element.addEventListener("focus", handleFocus);
     }
 
@@ -210,38 +276,45 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
       element.removeEventListener("mouseenter", handleMouseEnter);
       element.removeEventListener("focus", handleFocus);
     };
-  }, [
-    element,
-    logEvent,
-    events.mount,
-    events.click,
-    events.hover,
-    events.focus,
-  ]);
+  }, [element, logEvent, events]);
 
   // useLayoutEffect cleans up before the DOM node is detached, ensuring the branch anchor is still reachable.
   useLayoutEffect(() => {
     if (!element) return;
 
     return () => {
-      if (events.unmount) {
+      // Read at cleanup time: the anchor is still attached, and its flags are
+      // therefore the freshest available.
+      const effective = anchorEvents(
+        element.closest(BRANCH_ANCHOR),
+        events,
+        eventOverridesRef.current,
+      );
+      if (effective.unmount) {
         logEvent("unmount", element);
       }
     };
-  }, [element, logEvent, events.unmount]);
+  }, [element, logEvent, events]);
 
   useEffect(() => {
-    if (!element || (!events.visible && !events.scrolledAway)) return;
+    if (!element) return;
+
+    const effective = anchorEvents(
+      element.closest(BRANCH_ANCHOR),
+      events,
+      eventOverridesRef.current,
+    );
+    if (!effective.visible && !effective.scrolledAway) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          if (!hasLoggedVisibleRef.current && events.visible) {
+          if (!hasLoggedVisibleRef.current && effective.visible) {
             logEvent("visible", element);
           }
           hasLoggedVisibleRef.current = true;
         } else {
-          if (hasLoggedVisibleRef.current && events.scrolledAway) {
+          if (hasLoggedVisibleRef.current && effective.scrolledAway) {
             logEvent("scrolledAway", element);
           }
           hasLoggedVisibleRef.current = false;
@@ -252,7 +325,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [element, logEvent, events.visible, events.scrolledAway]);
+  }, [element, logEvent, events]);
 
   return { ref, element };
 };

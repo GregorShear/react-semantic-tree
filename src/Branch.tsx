@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useMemo } from "react";
 import {
+  ANCHOR_ATTRIBUTE,
+  EVENTS_ATTRIBUTE,
+  METADATA_ATTRIBUTE,
+  PATH_ATTRIBUTE,
+} from "./attributes";
+import {
   type TrackingOptions,
   useConfigurationContext,
 } from "./SemanticConfig";
@@ -63,14 +69,20 @@ export const Branch: React.FC<BranchProps> = ({
     <SemanticContext.Provider value={value}>
       {/*
         DOM anchor for useLeaf: .closest() can see providers that context cannot,
-        e.g. one declared in the same component's JSX. The path attribute is
-        omitted when empty so .closest() skips instead of matching "".
+        e.g. one declared in the same component's JSX. The anchor is a marker of
+        its own rather than the path attribute, so a branch that adds no segment
+        is still reachable — its metadata and flags matter even when the path is
+        empty. The path attribute is omitted when empty, which keeps the leaf's
+        resolved path from starting with a separator.
       */}
       <div
         style={{ display: "contents" }}
-        data-semantic-path={value.path || undefined}
-        data-semantic-metadata={JSON.stringify(value.metadata)}
-        data-semantic-events={JSON.stringify(value.events)}
+        {...{
+          [ANCHOR_ATTRIBUTE]: "",
+          [PATH_ATTRIBUTE]: value.path || undefined,
+          [METADATA_ATTRIBUTE]: JSON.stringify(value.metadata),
+          [EVENTS_ATTRIBUTE]: JSON.stringify(value.events),
+        }}
       >
         {children}
       </div>
