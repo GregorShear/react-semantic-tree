@@ -27,6 +27,8 @@ export interface BranchProps {
   children: React.ReactNode;
 }
 
+const EMPTY_METADATA: Record<string, any> = {};
+
 const SemanticContext = createContext<SemanticContextValue | undefined>(
   undefined,
 );
@@ -42,7 +44,7 @@ export const Branch: React.FC<BranchProps> = ({
 
   const {
     path: parentPath = "",
-    metadata: parentMetadata = {},
+    metadata: parentMetadata = EMPTY_METADATA,
     events: parentEvents = globalEvents,
   } = parentContext ?? {};
 
