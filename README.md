@@ -71,7 +71,7 @@ Returns a `forwardRef` component taking the wrapped component's props. Static pr
 
 ## What gets logged
 
-Each event carries the resolved path and the merged metadata: branch metadata first, then the leaf's, then the library-generated `eventType`, `role`, and `tagName`.
+Each event carries the resolved path and the merged metadata: branch metadata first, then the leaf's, then the library-generated `eventType` and `tagName`.
 
 Metadata is read at event time, not render time, so state and derived values are current:
 

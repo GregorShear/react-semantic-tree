@@ -214,7 +214,6 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         ...baseMetadata,
         ...resolveMetadata(metadataRef.current, event),
         eventType,
-        role: targetElement.getAttribute("role") ?? undefined,
         tagName: targetElement.tagName.toLowerCase(),
       };
 

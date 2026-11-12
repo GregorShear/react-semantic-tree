@@ -17,8 +17,8 @@ the coverage to write first, roughly in priority order.
 
 - One `click` log per click, carrying the leaf's current `metadata`.
 - `metadata` changes between renders are reflected in the next event's log (the hook reads it at event time, via a ref).
-- `metadata` precedence: branch metadata is merged first, then the leaf's own, then the library-generated `eventType`, `role`, and `tagName`.
-- Function-valued metadata resolves at event time, is overridden by `eventType`/`role`/`tagName`, receives `undefined` for events with no event object, and a throwing resolver drops only its own key.
+- `metadata` precedence: branch metadata is merged first, then the leaf's own, then the library-generated `eventType` and `tagName`.
+- Function-valued metadata resolves at event time, is overridden by `eventType`/`tagName`, receives `undefined` for events with no event object, and a throwing resolver drops only its own key.
 - `events` merges down the branch chain, and a leaf inherits the merged values; disabling `click` on a branch means no click log at all.
 - Per-leaf `events` overrides win in both directions: a leaf can enable an event its branch disabled (`{ hover: true }` under `events: { hover: false }`) and disable one its branch enabled (`{ click: false }`).
 - A `<Branch>` rendered by the same component that calls `useLeaf` can both enable and disable an event (`src/__tests__/sameComponentBranch.test.tsx`).
