@@ -18,9 +18,9 @@ const Leaf = () => {
 
 describe("<Branch> anchor", () => {
   it("refreshes the stored data when its props change", () => {
-    const calls: { path: string; metadata: JsonObject }[] = [];
-    const adapter: LoggerAdapter = (path, metadata = {}) => {
-      calls.push({ path, metadata });
+    const calls: { labels: string[]; metadata: JsonObject }[] = [];
+    const adapter: LoggerAdapter = (labels, metadata = {}) => {
+      calls.push({ labels: [...labels], metadata });
     };
 
     const renderTree = (label: string, metadata: JsonObject) => (
@@ -37,9 +37,9 @@ describe("<Branch> anchor", () => {
     rerender(renderTree("Renamed", { version: 2 }));
     fireEvent.click(target());
 
-    expect(calls.map((call) => call.path)).toEqual([
-      "Branch > child leaf",
-      "Renamed > child leaf",
+    expect(calls.map((call) => call.labels)).toEqual([
+      ["Branch", "child leaf"],
+      ["Renamed", "child leaf"],
     ]);
     expect(calls.map((call) => call.metadata.version)).toEqual([1, 2]);
   });

@@ -11,13 +11,13 @@ npm install react-semantic-tree
 
 ## Usage
 
-**1. Provider** — the adapter receives every event:
+**1. Provider** — the adapter receives every event. The path arrives as an array of segment labels, so the adapter can keep them structured or join them however it likes:
 
 ```tsx
-const adapter: LoggerAdapter = (path, metadata) =>
+const adapter: LoggerAdapter = (labels, metadata) =>
   Sentry.addBreadcrumb({
     category: "user-action",
-    message: path,
+    message: labels.join(" > "),
     data: metadata,
   });
 
@@ -76,7 +76,7 @@ Returns a `forwardRef` component taking the wrapped component's props. Static pr
 
 A leaf resolves everything through its nearest `data-semantic-branch` ancestor: the branch registers the path prefix, metadata and event flags against that element in memory, and the leaf looks them up after finding it in the DOM. Leaves never read React context, so context has to be registered on a DOM node — including inside a portal, which moves the node but not the React tree (see **Portals** under [Usage](#usage)).
 
-Each event carries the resolved path and the merged metadata: branch metadata first, then the leaf's, then the library-generated `eventType` and `tagName`.
+Each event carries the resolved path as an array of segment labels, root first and the leaf's own label last, plus the merged metadata: branch metadata first, then the leaf's, then the library-generated `eventType` and `tagName`. Keeping the segments separate lets the adapter choose how to render them — join with a separator, keep them as an array, or use them as a hierarchy.
 
 Metadata is read at event time, not render time, so state and derived values are current:
 
@@ -90,13 +90,13 @@ It is always plain data: values are never called. Reading a `useLeaf` call tells
 useLeaf("docs link", { href: link.href, surface: "docs" });
 ```
 
-| Event     | Logged when                                                             |
-| --------- | ----------------------------------------------------------------------- |
-| `mount`   | the element attaches.                                                   |
-| `visible` | it enters the viewport (IntersectionObserver, 10% threshold).           |
-| `hover`   | the pointer enters it (`mouseenter`).                                   |
-| `focus`   | the element receives focus.                                             |
-| `click`   | a click reaches the element.                                            |
+| Event     | Logged when                                                   |
+| --------- | ------------------------------------------------------------- |
+| `mount`   | the element attaches.                                         |
+| `visible` | it enters the viewport (IntersectionObserver, 10% threshold). |
+| `hover`   | the pointer enters it (`mouseenter`).                         |
+| `focus`   | the element receives focus.                                   |
+| `click`   | a click reaches the element.                                  |
 
 `click` is on by default; every other event is off unless you enable it.
 

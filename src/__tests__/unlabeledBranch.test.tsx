@@ -47,7 +47,7 @@ describe("unlabeled <Branch>", () => {
     fireEvent.click(target());
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].path).toBe("child leaf");
+    expect(calls[0].labels).toEqual(["child leaf"]);
     expect(calls[0].metadata).toMatchObject({ appVersion: "1.0.0" });
   });
 
@@ -66,7 +66,7 @@ describe("unlabeled <Branch>", () => {
     fireEvent.click(target());
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].path).toBe("Outer > child leaf");
+    expect(calls[0].labels).toEqual(["Outer", "child leaf"]);
     expect(calls[0].metadata).toMatchObject({ outer: true, inner: true });
   });
 });
@@ -82,8 +82,8 @@ describe("branch flags vs. ambient config", () => {
 
     fireEvent.mouseEnter(target());
 
-    expect(callsOfType("hover").map((call) => call.path)).toEqual([
-      "Inner > child leaf",
+    expect(callsOfType("hover").map((call) => call.labels)).toEqual([
+      ["Inner", "child leaf"],
     ]);
   });
 

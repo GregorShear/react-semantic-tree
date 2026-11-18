@@ -36,34 +36,30 @@ export const Branch: React.FC<BranchProps> = ({
   const parentContext = useContext(SemanticContext);
 
   const {
-    path: parentPath = "",
+    labels: parentLabels = [],
     metadata: parentMetadata = EMPTY_METADATA,
     events: parentEvents = globalEvents,
   } = parentContext ?? {};
 
   const value = useMemo<SemanticContextValue>(() => {
-    const currentPath = label
-      ? parentPath
-        ? `${parentPath} > ${label}`
-        : label
-      : parentPath;
+    const currentLabels = label ? [...parentLabels, label] : parentLabels;
     const { safe: currentMetadata, stripped } = sanitize(
       mergeMetadata(parentMetadata, metadata),
     );
     if (stripped?.length && isDevelopment()) {
       console.warn(
         `[react-semantic-tree] dropped non-JSON metadata at ` +
-          `${currentPath || "(unlabeled branch)"}: ${stripped.join(", ")}`,
+          `${currentLabels.join(" > ") || "(unlabeled branch)"}: ${stripped.join(", ")}`,
       );
     }
     const currentEvents = resolveEvents(parentEvents, events);
 
     return {
-      path: currentPath,
+      labels: currentLabels,
       metadata: currentMetadata,
       events: currentEvents,
     };
-  }, [parentPath, parentMetadata, parentEvents, label, metadata, events]);
+  }, [parentLabels, parentMetadata, parentEvents, label, metadata, events]);
 
   // The entry must be current before a child leaf's effects run, so it is
   // written from the ref callback rather than an effect: child effects fire

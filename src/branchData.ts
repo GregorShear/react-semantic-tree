@@ -3,7 +3,7 @@ import type { JsonObject } from "./metadata";
 
 /** The context a `<Branch>` publishes for the leaves beneath its anchor. */
 export interface BranchData {
-  path: string;
+  labels: string[];
   metadata: JsonObject;
   events: Required<TrackingOptions>;
 }

@@ -42,7 +42,10 @@ describe("portals", () => {
 
     expect(callsOfType("hover")).toHaveLength(0);
     expect(callsOfType("click")).toHaveLength(1);
-    expect(callsOfType("click")[0].path).toBe("User Grants > child leaf");
+    expect(callsOfType("click")[0].labels).toEqual([
+      "User Grants",
+      "child leaf",
+    ]);
     expect(callsOfType("click")[0].metadata).toMatchObject({
       appVersion: "1.0.0",
       local: true,

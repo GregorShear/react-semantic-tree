@@ -26,11 +26,11 @@ const reportAdapterFailure = (cause: unknown) => {
 
 const callAdapter = (
   adapter: LoggerAdapter,
-  path: string,
+  labels: string[],
   metadata: JsonObject,
 ) => {
   try {
-    const result = adapter(path, metadata) as unknown;
+    const result = adapter(labels, metadata) as unknown;
     if (
       result !== null &&
       (typeof result === "object" || typeof result === "function") &&
@@ -114,7 +114,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
       const nearestProvider = targetElement.closest(BRANCH_SELECTOR);
       const branchData = getBranchData(nearestProvider);
 
-      const branchPath = branchData?.path;
+      const branchLabels = branchData?.labels ?? [];
       const baseMetadata = branchData?.metadata ?? {};
 
       if (
@@ -131,9 +131,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         );
       }
 
-      const resolvedPath = branchPath
-        ? `${branchPath} > ${labelRef.current}`
-        : labelRef.current;
+      const resolvedLabels = [...branchLabels, labelRef.current];
 
       const combinedMetadata: JsonObject = {
         ...mergeMetadata(baseMetadata, leafMetadata),
@@ -141,7 +139,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         tagName: targetElement.tagName.toLowerCase(),
       };
 
-      callAdapter(adapter, resolvedPath, combinedMetadata);
+      callAdapter(adapter, resolvedLabels, combinedMetadata);
     },
     [adapter, effectiveEvents],
   );

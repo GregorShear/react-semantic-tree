@@ -6,7 +6,7 @@ import type { JsonObject } from "../metadata";
 import type { TrackingOptions } from "../SemanticConfig";
 
 export interface LoggedCall {
-  path: string;
+  labels: string[];
   metadata: JsonObject;
 }
 
@@ -21,8 +21,8 @@ export const renderTracking = (
   events: TrackingOptions = {},
 ) => {
   const calls: LoggedCall[] = [];
-  const adapter: LoggerAdapter = (path, metadata = {}) => {
-    calls.push({ path, metadata });
+  const adapter: LoggerAdapter = (labels, metadata = {}) => {
+    calls.push({ labels: [...labels], metadata });
   };
 
   render(
