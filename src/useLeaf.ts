@@ -120,26 +120,16 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
 
   const lastMountedElement = useRef<T | null>(null);
   const hasLoggedVisibleRef = useRef(false);
-  const safeMetadata = useMemo(() => {
-    const { safe, stripped } = sanitize(metadata);
-    if (stripped?.length && isDevelopment()) {
-      console.warn(
-        `[react-semantic-tree] dropped non-JSON metadata in ` +
-          `useLeaf("${label}"): ${stripped.join(", ")}`,
-      );
-    }
-    return safe;
-  }, [metadata, label]);
 
   // Refs keep logEvent stable across renders.
   const labelRef = useRef(label);
-  const metadataRef = useRef(safeMetadata);
+  const metadataRef = useRef(metadata);
   // Raw overrides, not resolved defaults, so they can outrank the DOM flags.
   const eventOverridesRef = useRef(eventOverrides);
 
   useEffect(() => {
     labelRef.current = label;
-    metadataRef.current = safeMetadata;
+    metadataRef.current = metadata;
     eventOverridesRef.current = eventOverrides;
   });
 
@@ -165,12 +155,20 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         return;
       }
 
+      const { safe: leafMetadata, stripped } = sanitize(metadataRef.current);
+      if (stripped?.length && isDevelopment()) {
+        console.warn(
+          `[react-semantic-tree] dropped non-JSON metadata in ` +
+            `useLeaf("${labelRef.current}"): ${stripped.join(", ")}`,
+        );
+      }
+
       const resolvedPath = domPath
         ? `${domPath} > ${labelRef.current}`
         : labelRef.current;
 
       const combinedMetadata: JsonObject = {
-        ...mergeMetadata(baseMetadata, metadataRef.current),
+        ...mergeMetadata(baseMetadata, leafMetadata),
         eventType,
         tagName: targetElement.tagName.toLowerCase(),
       };
