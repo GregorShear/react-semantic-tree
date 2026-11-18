@@ -51,7 +51,7 @@ return (
 );
 ```
 
-**4. Portals** — a leaf resolves its context from the DOM, not from React: it walks up to the nearest `data-semantic-branch` ancestor. A portal moves the DOM node but not the React one, so a leaf rendered through a portal has no branch to read, and only reports itself. Render a `<Branch>` inside the portal to re-materialise the inherited path, metadata and flags on a DOM node the leaf can find. Unlabeled and empty is the minimal form: it adds no path segment, only the inherited context.
+**4. Portals** — a leaf resolves its context by finding the nearest `data-semantic-branch` ancestor in the DOM, then looking up the branch data registered against that element in memory. A portal moves the DOM node but not the React one, so a leaf rendered through a portal has no branch to read, and only reports itself. Render a `<Branch>` inside the portal to register the inherited path, metadata and flags against a DOM node the leaf can find. Unlabeled and empty is the minimal form: it adds no path segment, only the inherited context.
 
 ```tsx
 <Dialog open={open}>
@@ -74,7 +74,7 @@ Returns a `forwardRef` component taking the wrapped component's props. Static pr
 
 ## What gets logged
 
-A leaf resolves everything from the DOM: the nearest `data-semantic-branch` ancestor supplies the path prefix, the metadata and the event flags. Leaves never read React context, so context has to be materialised on a DOM node — including inside a portal, which moves the node but not the React tree (see **Portals** under [Usage](#usage)).
+A leaf resolves everything through its nearest `data-semantic-branch` ancestor: the branch registers the path prefix, metadata and event flags against that element in memory, and the leaf looks them up after finding it in the DOM. Leaves never read React context, so context has to be registered on a DOM node — including inside a portal, which moves the node but not the React tree (see **Portals** under [Usage](#usage)).
 
 Each event carries the resolved path and the merged metadata: branch metadata first, then the leaf's, then the library-generated `eventType` and `tagName`.
 

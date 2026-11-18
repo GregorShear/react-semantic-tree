@@ -1,10 +1,5 @@
-import React, { createContext, useContext, useMemo } from "react";
-import {
-  ANCHOR_ATTRIBUTE,
-  EVENTS_ATTRIBUTE,
-  METADATA_ATTRIBUTE,
-  PATH_ATTRIBUTE,
-} from "./attributes";
+import React, { createContext, useCallback, useContext, useMemo } from "react";
+import { type BranchData, setBranchData } from "./branchData";
 import {
   type TrackingOptions,
   useConfigurationContext,
@@ -13,11 +8,10 @@ import { isDevelopment } from "./environment";
 import { mergeMetadata, resolveEvents } from "./merge";
 import { type JsonObject, sanitize } from "./metadata";
 
-interface SemanticContextValue {
-  path: string;
-  metadata: JsonObject;
-  events: Required<TrackingOptions>;
-}
+type SemanticContextValue = BranchData;
+
+const BRANCH_ATTRIBUTE = "data-semantic-branch";
+export const BRANCH_SELECTOR = `[${BRANCH_ATTRIBUTE}]`;
 
 export interface BranchProps {
   label?: string;
@@ -47,7 +41,7 @@ export const Branch: React.FC<BranchProps> = ({
     events: parentEvents = globalEvents,
   } = parentContext ?? {};
 
-  const { value, attributes } = useMemo(() => {
+  const value = useMemo<SemanticContextValue>(() => {
     const currentPath = label
       ? parentPath
         ? `${parentPath} > ${label}`
@@ -65,23 +59,30 @@ export const Branch: React.FC<BranchProps> = ({
     const currentEvents = resolveEvents(parentEvents, events);
 
     return {
-      value: {
-        path: currentPath,
-        metadata: currentMetadata,
-        events: currentEvents,
-      },
-      attributes: {
-        [ANCHOR_ATTRIBUTE]: "",
-        [PATH_ATTRIBUTE]: currentPath || undefined,
-        [METADATA_ATTRIBUTE]: JSON.stringify(currentMetadata),
-        [EVENTS_ATTRIBUTE]: JSON.stringify(currentEvents),
-      },
+      path: currentPath,
+      metadata: currentMetadata,
+      events: currentEvents,
     };
   }, [parentPath, parentMetadata, parentEvents, label, metadata, events]);
 
+  // The entry must be current before a child leaf's effects run, so it is
+  // written from the ref callback rather than an effect: child effects fire
+  // before their parent's. A changed `value` replaces the callback, which React
+  // re-invokes before those effects.
+  const anchorRef = useCallback(
+    (node: HTMLSpanElement | null) => {
+      if (node) setBranchData(node, value);
+    },
+    [value],
+  );
+
   return (
     <SemanticContext.Provider value={value}>
-      <span style={{ display: "contents" }} {...attributes}>
+      <span
+        ref={anchorRef}
+        style={{ display: "contents" }}
+        {...{ [BRANCH_ATTRIBUTE]: "" }}
+      >
         {children}
       </span>
     </SemanticContext.Provider>

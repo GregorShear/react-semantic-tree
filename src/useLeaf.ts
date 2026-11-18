@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ANCHOR_ATTRIBUTE,
-  EVENTS_ATTRIBUTE,
-  LEAF_ATTRIBUTE,
-  METADATA_ATTRIBUTE,
-  PATH_ATTRIBUTE,
-} from "./attributes";
+import { BRANCH_SELECTOR } from "./Branch";
+import { getBranchData } from "./branchData";
 import {
   type LoggerAdapter,
   useConfigurationContext,
@@ -14,23 +9,9 @@ import {
 import { isDevelopment } from "./environment";
 import { mergeMetadata, resolveEvents } from "./merge";
 import { type JsonObject, sanitize } from "./metadata";
+const LEAF_ATTRIBUTE = "data-semantic-leaf";
 
-const parseJsonAttribute = <T>(
-  value: string | null | undefined,
-  fallback: T,
-): T => {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-};
-
-const BRANCH_ANCHOR = `[${ANCHOR_ATTRIBUTE}]`;
-
-/** Selector for a tracked element, to find where a bubbled event started. */
-const TRACKED_LEAF = `[${LEAF_ATTRIBUTE}]`;
+const LEAF_SELECTOR = `[${LEAF_ATTRIBUTE}]`;
 
 const reportAdapterFailure = (cause: unknown) => {
   if (!isDevelopment()) return;
@@ -43,14 +24,6 @@ const reportAdapterFailure = (cause: unknown) => {
   );
 };
 
-/**
- * Calls the user adapter behind an exception boundary. It runs inside a React
- * effect and DOM listeners, so an escaping exception would abort a commit and
- * unmount the subtree, or surface as an uncaught error from a handler. Tracking
- * is best-effort: a failing adapter must not affect the application. The return
- * value is inspected too, because an `async` adapter is assignable to
- * `LoggerAdapter` and its rejection would otherwise escape as an unhandled one.
- */
 const callAdapter = (
   adapter: LoggerAdapter,
   path: string,
@@ -72,10 +45,7 @@ const callAdapter = (
 
 /** Flags `Branch` published on one anchor, or `{}` when there is none. */
 const readAnchorFlags = (anchor: Element | null): TrackingOptions =>
-  parseJsonAttribute<Partial<TrackingOptions>>(
-    anchor?.getAttribute(EVENTS_ATTRIBUTE),
-    {},
-  );
+  getBranchData(anchor)?.events ?? {};
 
 interface UseLeafOutput<T extends HTMLElement = HTMLElement> {
   /** Attach to the target element. */
@@ -141,13 +111,11 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
 
   const logEvent = useCallback(
     (eventType: string, targetElement: HTMLElement) => {
-      // The DOM is the only source of the hierarchy.
-      const nearestProvider = targetElement.closest(BRANCH_ANCHOR);
+      const nearestProvider = targetElement.closest(BRANCH_SELECTOR);
+      const branchData = getBranchData(nearestProvider);
 
-      const domPath = nearestProvider?.getAttribute(PATH_ATTRIBUTE);
-      const domMetadata = nearestProvider?.getAttribute(METADATA_ATTRIBUTE);
-
-      const baseMetadata = parseJsonAttribute<JsonObject>(domMetadata, {});
+      const branchPath = branchData?.path;
+      const baseMetadata = branchData?.metadata ?? {};
 
       if (
         !effectiveEvents(nearestProvider)[eventType as keyof TrackingOptions]
@@ -163,8 +131,8 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         );
       }
 
-      const resolvedPath = domPath
-        ? `${domPath} > ${labelRef.current}`
+      const resolvedPath = branchPath
+        ? `${branchPath} > ${labelRef.current}`
         : labelRef.current;
 
       const combinedMetadata: JsonObject = {
@@ -181,7 +149,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
   useEffect(() => {
     if (!element) return;
 
-    const effective = effectiveEvents(element.closest(BRANCH_ANCHOR));
+    const effective = effectiveEvents(element.closest(BRANCH_SELECTOR));
 
     if (effective.mount && lastMountedElement.current !== element) {
       logEvent("mount", element);
@@ -195,7 +163,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
       // user never made here. Only the leaf the event started in reports it.
       const target = event.target;
       if (target instanceof Element) {
-        const origin = target.closest(TRACKED_LEAF);
+        const origin = target.closest(LEAF_SELECTOR);
         if (origin && origin !== element) return;
       }
 
@@ -232,7 +200,7 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
   useEffect(() => {
     if (!element) return;
 
-    const effective = effectiveEvents(element.closest(BRANCH_ANCHOR));
+    const effective = effectiveEvents(element.closest(BRANCH_SELECTOR));
     if (!effective.visible) return;
 
     const observer = new IntersectionObserver(
