@@ -1,6 +1,6 @@
 {
   "name": "react-semantic-tree",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Decorate your React component tree with semantic context.",
   "workspaces": [
     "example"

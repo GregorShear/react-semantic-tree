@@ -93,7 +93,7 @@ useLeaf("docs link", { href: link.href, surface: "docs" });
 | Event     | Logged when                                                             |
 | --------- | ----------------------------------------------------------------------- |
 | `mount`   | the element attaches.                                                   |
-| `visible` | it first intersects the viewport (IntersectionObserver, 10% threshold). |
+| `visible` | it enters the viewport (IntersectionObserver, 10% threshold).           |
 | `hover`   | the pointer enters it (`mouseenter`).                                   |
 | `focus`   | the element receives focus.                                             |
 | `click`   | a click reaches the element.                                            |
