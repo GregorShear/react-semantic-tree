@@ -29,9 +29,9 @@ the coverage to write first, roughly in priority order.
 - Path resolves from the nearest `Branch` anchor in the DOM, including a branch declared in the same component's JSX as the leaf (the case React context cannot see). React context is never read, so every test that asserts inheritance also proves the anchor alone carries it.
 - A leaf nested inside another leaf logs only the enclosing _branch_ path; leaves do not contribute path segments.
 - A click in a nested leaf logs once, against the leaf it happened in, and not again against the enclosing leaf it bubbled to. A click on a plain descendant of a leaf is still the leaf's own (`src/__tests__/nestedLeaves.test.tsx`).
-- A branch without a `label` publishes the inherited path unchanged (portals), and publishes no `data-semantic-path` attribute at all when it inherited nothing, so a leaf's resolved path is its own label rather than `" > label"`.
-- A `<Branch>` rendered inside a portal re-materialises the inherited path, metadata and flags on a DOM node the portalled leaf can find; unlabeled and empty is the minimal form (`src/__tests__/portals.test.tsx`).
-- The attribute a leaf finds its branch by is a separate marker (`data-semantic-branch`), never the path. A branch that adds metadata and flags but no segment is therefore still reachable, at the root and nested, including when `useLeaf` and the `Branch` share a component (`src/__tests__/unlabeledBranch.test.tsx`).
+- A branch without a `label` keeps the inherited label array unchanged (portals), and contributes no segment at all when it inherited nothing, so a leaf's resolved labels are just its own label rather than a leading empty segment.
+- A `<Branch>` rendered inside a portal re-registers the inherited path, metadata and flags on a DOM node the portalled leaf can find; unlabeled and empty is the minimal form (`src/__tests__/portals.test.tsx`).
+- The attribute a leaf finds its branch by is a separate marker (`data-semantic-branch`), never the path, and the branch data itself is held in an in-memory `WeakMap` keyed by that element. A branch that adds metadata and flags but no segment is therefore still reachable, at the root and nested, including when `useLeaf` and the `Branch` share a component (`src/__tests__/unlabeledBranch.test.tsx`).
 
 **Lifecycle**
 

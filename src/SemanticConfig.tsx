@@ -3,7 +3,7 @@ import { resolveEvents } from "./merge";
 import type { JsonObject } from "./metadata";
 
 export type LoggerAdapter = (
-  semanticPath: string,
+  labels: readonly string[],
   metadata?: JsonObject,
 ) => void;
 
@@ -49,7 +49,7 @@ const colors: Record<string, string> = {
 };
 
 /** Logs to `console.debug`; used when no `adapter` is given. */
-export const consoleLogAdapter: LoggerAdapter = (semanticPath, metadata) => {
+export const consoleLogAdapter: LoggerAdapter = (labels, metadata) => {
   const { eventType, ...payload } = metadata ?? {};
   const eventTypeName = typeof eventType === "string" ? eventType : "";
   const label = (eventTypeName || "unknown").toUpperCase();
@@ -59,7 +59,7 @@ export const consoleLogAdapter: LoggerAdapter = (semanticPath, metadata) => {
     `%c${label}%c %s %o`,
     `background-color: ${color}; padding: 2px 4px; color: white; border-radius: 2px; font-weight: bold; font-size: 10px;`,
     "",
-    `${semanticPath}:`,
+    `${labels.join(" > ")}:`,
     {
       timestamp: new Date().toISOString(),
       ...payload,

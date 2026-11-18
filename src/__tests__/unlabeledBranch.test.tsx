@@ -33,10 +33,10 @@ const LeafInliningItsOwnBranch = ({
 };
 
 describe("unlabeled <Branch>", () => {
-  // `Branch` omits `data-semantic-path` when the path is empty, which is why the
-  // anchor is a separate marker attribute. A branch that adds metadata but no
-  // segment still reaches the leaf, and the path stays the leaf's own label
-  // rather than gaining a leading separator.
+  // An empty path is stored as such rather than published as a segment, which
+  // is why the anchor is a separate marker attribute. A branch that adds
+  // metadata but no segment still reaches the leaf, and the path stays the
+  // leaf's own label rather than gaining a leading separator.
   it("publishes its metadata when it adds no path segment", () => {
     const { calls } = renderTracking(
       <Branch metadata={{ appVersion: "1.0.0" }}>
@@ -47,13 +47,13 @@ describe("unlabeled <Branch>", () => {
     fireEvent.click(target());
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].path).toBe("child leaf");
+    expect(calls[0].labels).toEqual(["child leaf"]);
     expect(calls[0].metadata).toMatchObject({ appVersion: "1.0.0" });
   });
 
   // Boundary: once an ancestor contributes a segment the unlabeled branch has an
-  // inherited path to re-materialise, so it publishes both attributes. The
-  // root-level case above publishes no path attribute at all and is still found.
+  // inherited path to re-register, so the leaf sees it. The root-level case
+  // above registers no segment at all and is still found.
   it("keeps its metadata when nested under a labeled branch", () => {
     const { calls } = renderTracking(
       <Branch label="Outer" metadata={{ outer: true }}>
@@ -66,7 +66,7 @@ describe("unlabeled <Branch>", () => {
     fireEvent.click(target());
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].path).toBe("Outer > child leaf");
+    expect(calls[0].labels).toEqual(["Outer", "child leaf"]);
     expect(calls[0].metadata).toMatchObject({ outer: true, inner: true });
   });
 });
@@ -82,8 +82,8 @@ describe("branch flags vs. ambient config", () => {
 
     fireEvent.mouseEnter(target());
 
-    expect(callsOfType("hover").map((call) => call.path)).toEqual([
-      "Inner > child leaf",
+    expect(callsOfType("hover").map((call) => call.labels)).toEqual([
+      ["Inner", "child leaf"],
     ]);
   });
 

@@ -24,9 +24,9 @@ export default tseslint.config(
   },
 
   {
-    // Leaf metadata is deliberately untyped: it forwards arbitrary
-    // consumer-supplied payloads to the logging adapter.
-    files: ["src/**/*.{ts,tsx}"],
+    // `withBranch` forwards a wrapped component's generic props and `ref`,
+    // which cannot be typed without `any` at the forwardRef boundary.
+    files: ["src/Branch.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
     },

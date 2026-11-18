@@ -38,7 +38,9 @@ describe("leaf nested in a leaf", () => {
 
     fireEvent.click(target());
 
-    expect(calls.map((call) => call.path)).toEqual(["Branch > inner leaf"]);
+    expect(calls.map((call) => call.labels)).toEqual([
+      ["Branch", "inner leaf"],
+    ]);
   });
 
   // Same bubbling path, opposite event: `mouseenter` does not bubble, so the
@@ -52,7 +54,9 @@ describe("leaf nested in a leaf", () => {
 
     fireEvent.mouseEnter(target());
 
-    expect(calls.map((call) => call.path)).toEqual(["Branch > inner leaf"]);
+    expect(calls.map((call) => call.labels)).toEqual([
+      ["Branch", "inner leaf"],
+    ]);
   });
 
   // The gate must not be too strict: a plain element inside a leaf is that
@@ -76,6 +80,8 @@ describe("leaf nested in a leaf", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Plain Target" }));
 
-    expect(calls.map((call) => call.path)).toEqual(["Branch > outer leaf"]);
+    expect(calls.map((call) => call.labels)).toEqual([
+      ["Branch", "outer leaf"],
+    ]);
   });
 });

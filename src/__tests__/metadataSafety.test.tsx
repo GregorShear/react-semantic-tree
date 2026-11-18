@@ -27,7 +27,7 @@ describe("metadata that JSON cannot represent", () => {
 
     fireEvent.click(target());
 
-    expect(calls[0].path).toBe("BigIntBranch > Inner > child leaf");
+    expect(calls[0].labels).toEqual(["BigIntBranch", "Inner", "child leaf"]);
     expect(calls[0].metadata).toMatchObject({ id: "abc", ok: true });
     expect(calls[0].metadata).not.toHaveProperty("count");
     // The warning names the key, so the caller can find it.
