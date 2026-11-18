@@ -42,7 +42,7 @@ describe("leaf nested in a leaf", () => {
   });
 
   // Same bubbling path, opposite event: `mouseenter` does not bubble, so the
-  // enclosing leaf correctly stays quiet. Documents what the fix must preserve.
+  // enclosing leaf correctly stays quiet.
   it("logs no hover on the enclosing leaf", () => {
     const { calls } = renderTracking(
       <Branch label="Branch" events={{ hover: true }}>

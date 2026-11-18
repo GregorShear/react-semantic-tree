@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useMemo } from "react";
+import { resolveEvents } from "./merge";
+import type { JsonObject } from "./metadata";
 
 export type LoggerAdapter = (
   semanticPath: string,
-  metadata?: Record<string, any>,
+  metadata?: JsonObject,
 ) => void;
 
 export interface TrackingOptions {
@@ -11,9 +13,16 @@ export interface TrackingOptions {
   click?: boolean;
   focus?: boolean;
   visible?: boolean;
-  scrolledAway?: boolean;
-  unmount?: boolean;
 }
+
+/** `click` is the only event on by default. */
+const DEFAULT_EVENTS: Required<TrackingOptions> = {
+  mount: false,
+  hover: false,
+  click: true,
+  focus: false,
+  visible: false,
+};
 
 interface ConfigurationContextValue {
   adapter: LoggerAdapter;
@@ -37,16 +46,11 @@ const colors: Record<string, string> = {
   focus: "#6f42c1", // Purple
   hover: "#fd7e14", // Orange
   click: "#e83e8c", // Pink
-  scrolledAway: "#adb5bd", // Light Gray
-  unmount: "#6c757d", // Gray
 };
 
 /** Logs to `console.debug`; used when no `adapter` is given. */
-export const consoleLogAdapter: LoggerAdapter = (
-  semanticPath,
-  metadata = {},
-) => {
-  const { eventType, ...payload } = metadata;
+export const consoleLogAdapter: LoggerAdapter = (semanticPath, metadata) => {
+  const { eventType, ...payload } = metadata ?? {};
   const eventTypeName = typeof eventType === "string" ? eventType : "";
   const label = (eventTypeName || "unknown").toUpperCase();
   const color = colors[eventTypeName] ?? "#6c757d";
@@ -63,7 +67,6 @@ export const consoleLogAdapter: LoggerAdapter = (
   );
 };
 
-/** Wraps the app once to supply the adapter and event defaults. */
 export const SemanticConfig: React.FC<SemanticConfigProps> = ({
   adapter: customAdapter,
   events: customEvents,
@@ -72,15 +75,7 @@ export const SemanticConfig: React.FC<SemanticConfigProps> = ({
   const adapter = customAdapter ?? consoleLogAdapter;
 
   const events = useMemo(
-    (): Required<TrackingOptions> => ({
-      click: customEvents?.click ?? true,
-      mount: customEvents?.mount ?? false,
-      hover: customEvents?.hover ?? false,
-      focus: customEvents?.focus ?? false,
-      visible: customEvents?.visible ?? false,
-      scrolledAway: customEvents?.scrolledAway ?? false,
-      unmount: customEvents?.unmount ?? false,
-    }),
+    () => resolveEvents(DEFAULT_EVENTS, customEvents),
     [customEvents],
   );
 

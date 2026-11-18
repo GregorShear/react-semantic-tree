@@ -6,8 +6,8 @@ import { cleanup } from "@testing-library/react";
 afterEach(cleanup);
 
 // jsdom ships no IntersectionObserver. `useLeaf` constructs one only when
-// `visible` or `scrolledAway` is enabled, so tests that enable those need at
-// least a constructible stub. Individual tests can override the callback.
+// `visible` is enabled, so tests that enable it need at least a constructible
+// stub. Individual tests can override the callback.
 if (!("IntersectionObserver" in globalThis)) {
   class StubIntersectionObserver {
     readonly root = null;

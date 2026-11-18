@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ANCHOR_ATTRIBUTE,
   EVENTS_ATTRIBUTE,
@@ -13,13 +6,15 @@ import {
   METADATA_ATTRIBUTE,
   PATH_ATTRIBUTE,
 } from "./attributes";
-import { useSemanticContext } from "./Branch";
 import {
+  type LoggerAdapter,
   useConfigurationContext,
   type TrackingOptions,
 } from "./SemanticConfig";
+import { isDevelopment } from "./environment";
+import { mergeMetadata, resolveEvents } from "./merge";
+import { type JsonObject, sanitize } from "./metadata";
 
-/** Parses a JSON DOM attribute, falling back when absent or malformed. */
 const parseJsonAttribute = <T>(
   value: string | null | undefined,
   fallback: T,
@@ -32,124 +27,81 @@ const parseJsonAttribute = <T>(
   }
 };
 
-/**
- * Selector for the DOM anchor `Branch` publishes on its wrapper. Matches the
- * marker, not the path attribute: an unlabeled root branch publishes no path but
- * still carries merged metadata and flags, so it must be found.
- */
 const BRANCH_ANCHOR = `[${ANCHOR_ATTRIBUTE}]`;
 
 /** Selector for a tracked element, to find where a bubbled event started. */
 const TRACKED_LEAF = `[${LEAF_ATTRIBUTE}]`;
 
-/** Drops explicit `undefined`, so an unset prop cannot clobber an inherited flag. */
-const definedFlags = (options: TrackingOptions): TrackingOptions => {
-  const result = { ...options };
-  for (const key of Object.keys(result) as (keyof TrackingOptions)[]) {
-    if (result[key] === undefined) delete result[key];
-  }
-  return result;
+const reportAdapterFailure = (cause: unknown) => {
+  if (!isDevelopment()) return;
+
+  const reason = cause instanceof Error ? cause.message : String(cause);
+
+  console.warn(
+    `[react-semantic-tree] The logger adapter threw while handling an event; ` +
+      `the event was dropped and the application was left untouched. (${reason})`,
+  );
 };
 
 /**
- * Tracking flags for one element. `Branch` publishes its fully merged flags on
- * the nearest anchor, so the DOM already carries the whole context chain; the
- * leaf's own overrides go last. Used for listener attachment and for the
- * per-event log gate alike, so a branch rendered by the leaf's own component —
- * which context cannot see — can enable an event as well as disable it.
+ * Calls the user adapter behind an exception boundary. It runs inside a React
+ * effect and DOM listeners, so an escaping exception would abort a commit and
+ * unmount the subtree, or surface as an uncaught error from a handler. Tracking
+ * is best-effort: a failing adapter must not affect the application. The return
+ * value is inspected too, because an `async` adapter is assignable to
+ * `LoggerAdapter` and its rejection would otherwise escape as an unhandled one.
  */
-const anchorEvents = (
-  anchor: Element | null,
-  inherited: Required<TrackingOptions>,
-  overrides: TrackingOptions,
-): Required<TrackingOptions> => ({
-  ...inherited,
-  ...parseJsonAttribute<Partial<TrackingOptions>>(
+const callAdapter = (
+  adapter: LoggerAdapter,
+  path: string,
+  metadata: JsonObject,
+) => {
+  try {
+    const result = adapter(path, metadata) as unknown;
+    if (
+      result !== null &&
+      (typeof result === "object" || typeof result === "function") &&
+      typeof (result as { then?: unknown }).then === "function"
+    ) {
+      Promise.resolve(result).catch(reportAdapterFailure);
+    }
+  } catch (cause) {
+    reportAdapterFailure(cause);
+  }
+};
+
+/** Flags `Branch` published on one anchor, or `{}` when there is none. */
+const readAnchorFlags = (anchor: Element | null): TrackingOptions =>
+  parseJsonAttribute<Partial<TrackingOptions>>(
     anchor?.getAttribute(EVENTS_ATTRIBUTE),
     {},
-  ),
-  ...definedFlags(overrides),
-});
-
-type MetadataResolver = (event: Event | undefined) => unknown;
-
-/** Enumerated, not `unknown`, so a resolver literal gets `event` typed. */
-type MetadataValue =
-  | MetadataResolver
-  | string
-  | number
-  | boolean
-  | bigint
-  | object
-  | null
-  | undefined;
-
-/**
- * Calls function-valued entries with the triggering event (`undefined` for
- * events without one). Must be synchronous; a throw drops only that key.
- */
-const resolveMetadata = (
-  metadata: Record<string, MetadataValue>,
-  event: Event | undefined,
-): Record<string, any> => {
-  let resolved: Record<string, any> = metadata;
-  let copied = false;
-
-  for (const [key, value] of Object.entries(metadata)) {
-    if (typeof value !== "function") continue;
-
-    // Copy lazily, so data-only metadata is returned as-is.
-    if (!copied) {
-      resolved = { ...metadata };
-      copied = true;
-    }
-
-    try {
-      // `object` in the union can hold functions, so narrow explicitly.
-      resolved[key] = (value as MetadataResolver)(event);
-    } catch {
-      delete resolved[key];
-    }
-  }
-
-  return resolved;
-};
+  );
 
 interface UseLeafOutput<T extends HTMLElement = HTMLElement> {
-  /** Attach to the target element. A callback ref, so effects re-run on mount/unmount. */
+  /** Attach to the target element. */
   ref: (node: T | null) => void;
   /** The tracked node, or `null` when unmounted — no `.current`, unlike a ref object. */
   element: T | null;
 }
 
-/**
- * Logs the tracked events for one element; attach the returned `ref` to it.
- * `metadata` values may be functions, resolved at event time with the event.
- */
 export const useLeaf = <T extends HTMLElement = HTMLElement>(
   label: string,
-  metadata: Record<string, MetadataValue> = {},
+  metadata: JsonObject = {},
   eventOverrides: TrackingOptions = {},
 ): UseLeafOutput<T> => {
   const { adapter, events: globalEvents } = useConfigurationContext();
-  const semanticContext = useSemanticContext();
 
-  // Overrides win over the branch chain and global config. Resolved per flag and
-  // memoised on those flags, so a fresh overrides object per render is harmless.
-  const inheritedEvents = semanticContext?.events ?? globalEvents;
   const {
-    mount = inheritedEvents.mount,
-    hover = inheritedEvents.hover,
-    click = inheritedEvents.click,
-    focus = inheritedEvents.focus,
-    visible = inheritedEvents.visible,
-    scrolledAway = inheritedEvents.scrolledAway,
-    unmount = inheritedEvents.unmount,
+    mount = globalEvents.mount,
+    hover = globalEvents.hover,
+    click = globalEvents.click,
+    focus = globalEvents.focus,
+    visible = globalEvents.visible,
   } = eventOverrides;
 
   const events = useMemo(
-    () => ({ mount, hover, click, focus, visible, scrolledAway, unmount }),
-    [mount, hover, click, focus, visible, scrolledAway, unmount],
+    () => ({ mount, hover, click, focus, visible }),
+    [mount, hover, click, focus, visible],
   );
 
   const [element, setElement] = useState<T | null>(null);
@@ -168,41 +120,48 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
 
   const lastMountedElement = useRef<T | null>(null);
   const hasLoggedVisibleRef = useRef(false);
+  const safeMetadata = useMemo(() => {
+    const { safe, stripped } = sanitize(metadata);
+    if (stripped?.length && isDevelopment()) {
+      console.warn(
+        `[react-semantic-tree] dropped non-JSON metadata in ` +
+          `useLeaf("${label}"): ${stripped.join(", ")}`,
+      );
+    }
+    return safe;
+  }, [metadata, label]);
 
   // Refs keep logEvent stable across renders.
   const labelRef = useRef(label);
-  const metadataRef = useRef(metadata);
+  const metadataRef = useRef(safeMetadata);
   // Raw overrides, not resolved defaults, so they can outrank the DOM flags.
   const eventOverridesRef = useRef(eventOverrides);
 
   useEffect(() => {
     labelRef.current = label;
-    metadataRef.current = metadata;
+    metadataRef.current = safeMetadata;
     eventOverridesRef.current = eventOverrides;
   });
 
+  const effectiveEvents = useCallback(
+    (anchor: Element | null) =>
+      resolveEvents(events, readAnchorFlags(anchor), eventOverridesRef.current),
+    [events],
+  );
+
   const logEvent = useCallback(
-    (eventType: string, targetElement: HTMLElement, event?: Event) => {
-      // The DOM is the source of truth for the hierarchy: context cannot see a
-      // provider declared in the same component's JSX. A leaf marks itself with a
-      // different attribute, so this only ever matches a branch anchor.
+    (eventType: string, targetElement: HTMLElement) => {
+      // The DOM is the only source of the hierarchy.
       const nearestProvider = targetElement.closest(BRANCH_ANCHOR);
 
       const domPath = nearestProvider?.getAttribute(PATH_ATTRIBUTE);
       const domMetadata = nearestProvider?.getAttribute(METADATA_ATTRIBUTE);
 
-      const baseMetadata = parseJsonAttribute<Record<string, any>>(
-        domMetadata,
-        {},
-      );
-      // Precedence: leaf overrides > branch chain from the DOM > context.
-      const baseEvents = anchorEvents(
-        nearestProvider,
-        events,
-        eventOverridesRef.current,
-      );
+      const baseMetadata = parseJsonAttribute<JsonObject>(domMetadata, {});
 
-      if (!baseEvents[eventType as keyof TrackingOptions]) {
+      if (
+        !effectiveEvents(nearestProvider)[eventType as keyof TrackingOptions]
+      ) {
         return;
       }
 
@@ -210,26 +169,21 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         ? `${domPath} > ${labelRef.current}`
         : labelRef.current;
 
-      const combinedMetadata = {
-        ...baseMetadata,
-        ...resolveMetadata(metadataRef.current, event),
+      const combinedMetadata: JsonObject = {
+        ...mergeMetadata(baseMetadata, metadataRef.current),
         eventType,
         tagName: targetElement.tagName.toLowerCase(),
       };
 
-      adapter(resolvedPath, combinedMetadata);
+      callAdapter(adapter, resolvedPath, combinedMetadata);
     },
-    [adapter, events],
+    [adapter, effectiveEvents],
   );
 
   useEffect(() => {
     if (!element) return;
 
-    const effective = anchorEvents(
-      element.closest(BRANCH_ANCHOR),
-      events,
-      eventOverridesRef.current,
-    );
+    const effective = effectiveEvents(element.closest(BRANCH_ANCHOR));
 
     if (effective.mount && lastMountedElement.current !== element) {
       logEvent("mount", element);
@@ -247,15 +201,15 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
         if (origin && origin !== element) return;
       }
 
-      logEvent("click", element, event);
+      logEvent("click", element);
     };
 
-    const handleMouseEnter = (event: MouseEvent) => {
-      logEvent("hover", element, event);
+    const handleMouseEnter = () => {
+      logEvent("hover", element);
     };
 
-    const handleFocus = (event: FocusEvent) => {
-      logEvent("focus", element, event);
+    const handleFocus = () => {
+      logEvent("focus", element);
     };
 
     if (effective.click) {
@@ -275,56 +229,31 @@ export const useLeaf = <T extends HTMLElement = HTMLElement>(
       element.removeEventListener("mouseenter", handleMouseEnter);
       element.removeEventListener("focus", handleFocus);
     };
-  }, [element, logEvent, events]);
-
-  // useLayoutEffect cleans up before the DOM node is detached, ensuring the branch anchor is still reachable.
-  useLayoutEffect(() => {
-    if (!element) return;
-
-    return () => {
-      // Read at cleanup time: the anchor is still attached, and its flags are
-      // therefore the freshest available.
-      const effective = anchorEvents(
-        element.closest(BRANCH_ANCHOR),
-        events,
-        eventOverridesRef.current,
-      );
-      if (effective.unmount) {
-        logEvent("unmount", element);
-      }
-    };
-  }, [element, logEvent, events]);
+  }, [element, logEvent, effectiveEvents]);
 
   useEffect(() => {
     if (!element) return;
 
-    const effective = anchorEvents(
-      element.closest(BRANCH_ANCHOR),
-      events,
-      eventOverridesRef.current,
-    );
-    if (!effective.visible && !effective.scrolledAway) return;
+    const effective = effectiveEvents(element.closest(BRANCH_ANCHOR));
+    if (!effective.visible) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          if (!hasLoggedVisibleRef.current && effective.visible) {
-            logEvent("visible", element);
-          }
-          hasLoggedVisibleRef.current = true;
-        } else {
-          if (hasLoggedVisibleRef.current && effective.scrolledAway) {
-            logEvent("scrolledAway", element);
-          }
+        if (!entry.isIntersecting) {
           hasLoggedVisibleRef.current = false;
+          return;
         }
+        if (!hasLoggedVisibleRef.current) {
+          logEvent("visible", element);
+        }
+        hasLoggedVisibleRef.current = true;
       },
       { threshold: 0.1 },
     );
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [element, logEvent, events]);
+  }, [element, logEvent, effectiveEvents]);
 
   return { ref, element };
 };

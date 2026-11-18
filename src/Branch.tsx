@@ -9,25 +9,24 @@ import {
   type TrackingOptions,
   useConfigurationContext,
 } from "./SemanticConfig";
+import { isDevelopment } from "./environment";
+import { mergeMetadata, resolveEvents } from "./merge";
+import { type JsonObject, sanitize } from "./metadata";
 
 interface SemanticContextValue {
   path: string;
-  metadata: Record<string, any>;
+  metadata: JsonObject;
   events: Required<TrackingOptions>;
 }
 
 export interface BranchProps {
-  /**
-   * Omit to add no path segment: the inherited path is re-materialised on a DOM
-   * node instead, which is what portals need.
-   */
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: JsonObject;
   events?: TrackingOptions;
   children: React.ReactNode;
 }
 
-const EMPTY_METADATA: Record<string, any> = {};
+const EMPTY_METADATA: JsonObject = {};
 
 const SemanticContext = createContext<SemanticContextValue | undefined>(
   undefined,
@@ -48,51 +47,81 @@ export const Branch: React.FC<BranchProps> = ({
     events: parentEvents = globalEvents,
   } = parentContext ?? {};
 
-  const value = useMemo(() => {
-    // Without a label this is a pass-through: no segment is added.
+  const { value, attributes } = useMemo(() => {
     const currentPath = label
       ? parentPath
         ? `${parentPath} > ${label}`
         : label
       : parentPath;
-    const currentMetadata = { ...parentMetadata, ...metadata };
-    const currentEvents: Required<TrackingOptions> = {
-      ...parentEvents,
-      ...events,
-    };
+    const { safe: currentMetadata, stripped } = sanitize(
+      mergeMetadata(parentMetadata, metadata),
+    );
+    if (stripped?.length && isDevelopment()) {
+      console.warn(
+        `[react-semantic-tree] dropped non-JSON metadata at ` +
+          `${currentPath || "(unlabeled branch)"}: ${stripped.join(", ")}`,
+      );
+    }
+    const currentEvents = resolveEvents(parentEvents, events);
+
     return {
-      path: currentPath,
-      metadata: currentMetadata,
-      events: currentEvents,
+      value: {
+        path: currentPath,
+        metadata: currentMetadata,
+        events: currentEvents,
+      },
+      attributes: {
+        [ANCHOR_ATTRIBUTE]: "",
+        [PATH_ATTRIBUTE]: currentPath || undefined,
+        [METADATA_ATTRIBUTE]: JSON.stringify(currentMetadata),
+        [EVENTS_ATTRIBUTE]: JSON.stringify(currentEvents),
+      },
     };
   }, [parentPath, parentMetadata, parentEvents, label, metadata, events]);
 
   return (
     <SemanticContext.Provider value={value}>
-      {/*
-        DOM anchor for useLeaf: .closest() can see providers that context cannot,
-        e.g. one declared in the same component's JSX. The anchor is a marker of
-        its own rather than the path attribute, so a branch that adds no segment
-        is still reachable — its metadata and flags matter even when the path is
-        empty. The path attribute is omitted when empty, which keeps the leaf's
-        resolved path from starting with a separator.
-      */}
-      <div
-        style={{ display: "contents" }}
-        {...{
-          [ANCHOR_ATTRIBUTE]: "",
-          [PATH_ATTRIBUTE]: value.path || undefined,
-          [METADATA_ATTRIBUTE]: JSON.stringify(value.metadata),
-          [EVENTS_ATTRIBUTE]: JSON.stringify(value.events),
-        }}
-      >
+      <span style={{ display: "contents" }} {...attributes}>
         {children}
-      </div>
+      </span>
     </SemanticContext.Provider>
   );
 };
 
-export const useSemanticContext = () => {
-  const context = useContext(SemanticContext);
-  return context;
-};
+type Options = Omit<BranchProps, "label" | "children">;
+
+/** The wrapped component's props, plus a `ref` it may forward to the DOM. */
+type Component<P extends object> = React.ForwardRefExoticComponent<
+  React.PropsWithoutRef<P> & React.RefAttributes<any>
+>;
+
+export function withBranch(label: string, options: Options = {}) {
+  const { metadata, events } = options;
+
+  return function wrap<P extends object>(
+    Component: React.ComponentType<P>,
+  ): Component<P> {
+    const WithBranch = React.forwardRef<any, P>(
+      function WithBranchForwardRef(props, ref) {
+        // `any` alias so JSX accepts `ref`, which a generic `P` has no prop for.
+        const Inner: React.ComponentType<any> = Component;
+
+        return (
+          <Branch label={label} metadata={metadata} events={events}>
+            <Inner {...props} ref={ref} />
+          </Branch>
+        );
+      },
+    );
+
+    const componentName =
+      // `name` is set on function components at runtime but absent from the type.
+      Component.displayName ||
+      (Component as { name?: string }).name ||
+      "Component";
+
+    WithBranch.displayName = `withBranch(${label})(${componentName})`;
+
+    return WithBranch;
+  };
+}
