@@ -2,17 +2,19 @@ import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 
 import { SemanticConfig, type LoggerAdapter } from "..";
+import type { JsonObject } from "../metadata";
 import type { TrackingOptions } from "../SemanticConfig";
 
 export interface LoggedCall {
   path: string;
-  metadata: Record<string, any>;
+  metadata: JsonObject;
 }
 
 /**
  * Renders `ui` under a `SemanticConfig` whose adapter collects every log.
- * `events` is the only tracking source React context can see here, so it plays
- * the role of "the rest of the tree".
+ * `events` is the global tracking config; a branch's flags reach a leaf only
+ * through the DOM anchor, never through context, so this is not "the rest of
+ * the tree" — `ui` has to carry its own branches.
  */
 export const renderTracking = (
   ui: ReactElement,

@@ -6,7 +6,6 @@ import {
   withBranch,
 } from "react-semantic-tree";
 
-// --- Theme Selection Dialog ---
 const ThemeDialog = ({ onClose }: { onClose: () => void }) => {
   const { ref: applyRef } = useLeaf<HTMLButtonElement>("apply theme button", {
     theme: "dark",
@@ -57,7 +56,6 @@ const ThemeDialog = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-// --- Settings Panel ---
 const SettingsPanelContent = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -82,7 +80,6 @@ const SettingsPanel = withBranch("SettingsPanel", {
   metadata: { section: "user-settings" },
 })(SettingsPanelContent);
 
-// --- Main Dashboard View ---
 const Dashboard = () => {
   const { ref: refreshRef } = useLeaf<HTMLButtonElement>("refresh button");
   return (
@@ -133,7 +130,6 @@ const AppContent = () => {
   );
 };
 
-// --- Root Application ---
 const App = () => {
   return (
     <SemanticConfig events={{ mount: false }}>
